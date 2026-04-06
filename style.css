@@ -1,0 +1,244 @@
+:root {
+  --bg: #0f1220;
+  --panel: #171c33;
+  --panel-2: #1f2645;
+  --text: #f8f9ff;
+  --accent: #f6c945;
+  --danger: #ff6b6b;
+  --good: #5de09a;
+  --line: #6fa8ff;
+  --cell-size: 100px;
+  --cell-gap: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 15% 10%, #1d2452 0%, var(--bg) 35%, #090b14 100%);
+}
+
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 16px 36px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  opacity: 0.8;
+}
+
+.status-panel {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-card {
+  background: linear-gradient(180deg, #25305f, var(--panel));
+  border: 1px solid #3a4a88;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stat-card .label {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.2rem;
+}
+
+.controls {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  background: #3b4d96;
+  color: white;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spin-btn {
+  margin-left: auto;
+  background: linear-gradient(180deg, #ffdf67, #e8ab2e);
+  color: #2d2105;
+  min-width: 130px;
+  font-size: 1rem;
+}
+
+.machine-wrapper {
+  margin-top: 16px;
+}
+
+.machine-frame {
+  position: relative;
+  width: calc((var(--cell-size) * 5) + (var(--cell-gap) * 6));
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--cell-gap);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2f3a70, #171b32);
+  border: 2px solid #6d80cf;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.reel-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--cell-gap);
+}
+
+.reel {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--cell-gap);
+  border-radius: 8px;
+  padding: 4px;
+  background: #0f1430;
+  border: 1px solid #425097;
+}
+
+.symbol-cell {
+  height: var(--cell-size);
+  background: linear-gradient(180deg, #2b376f, #1d2446);
+  border: 1px solid #4f61b0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  user-select: none;
+}
+
+.symbol-cell.rolling {
+  animation: pulse 0.18s linear infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    filter: brightness(0.94);
+  }
+  to {
+    filter: brightness(1.2);
+  }
+}
+
+.payline-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: var(--cell-gap);
+  width: calc(100% - (var(--cell-gap) * 2));
+  height: calc(100% - (var(--cell-gap) * 2));
+}
+
+.payline {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+  opacity: 0.16;
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.payline.active {
+  opacity: 0.95;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 5px #9bc2ff);
+}
+
+.message {
+  text-align: center;
+  margin: 10px 0 0;
+  min-height: 24px;
+  font-weight: 600;
+}
+
+.message.win {
+  color: var(--good);
+}
+
+.message.warn {
+  color: var(--danger);
+}
+
+.legend {
+  margin-top: 18px;
+  background: var(--panel-2);
+  border: 1px solid #3f4f8f;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.legend h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #33407a;
+  margin-right: 6px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --cell-size: 84px;
+  }
+
+  .status-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .legend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

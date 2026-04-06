@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slot Machine Prototype - Phase 1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>🎰 Slot Machine Prototype (Phase 1)</h1>
+      <p class="subtitle">Core logic complete. Placeholder visuals ready for Phase 2 assets.</p>
+    </header>
+
+    <section class="status-panel">
+      <div class="stat-card">
+        <span class="label">Credits</span>
+        <strong id="creditsDisplay">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="label">Bet</span>
+        <strong id="betDisplay">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="label">Last Win</span>
+        <strong id="winDisplay">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="label">Free Spins</span>
+        <strong id="freeSpinsDisplay">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="label">Bonus Multiplier</span>
+        <strong id="multiplierDisplay">x1</strong>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="betDownBtn" type="button">- Bet</button>
+      <button id="betUpBtn" type="button">+ Bet</button>
+      <button id="spinBtn" type="button" class="spin-btn">SPIN</button>
+    </section>
+
+    <section class="machine-wrapper">
+      <div class="machine-frame">
+        <div id="reelGrid" class="reel-grid" aria-label="5 reels by 3 rows"></div>
+        <svg id="paylineOverlay" class="payline-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </div>
+      <p id="messageDisplay" class="message">Press SPIN to play.</p>
+    </section>
+
+    <section class="legend">
+      <h2>Symbols (Placeholder)</h2>
+      <div class="legend-grid">
+        <div><span class="chip">🍒</span> Cherry (common)</div>
+        <div><span class="chip">🍋</span> Lemon</div>
+        <div><span class="chip">🔔</span> Bell</div>
+        <div><span class="chip">⭐</span> Star</div>
+        <div><span class="chip">💎</span> Gem</div>
+        <div><span class="chip">🃏</span> Wild</div>
+        <div><span class="chip">🌸</span> Scatter</div>
+        <div><span class="chip">👑</span> Jackpot</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
