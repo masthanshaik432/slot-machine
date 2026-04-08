@@ -15,6 +15,7 @@
 const CONFIG = {
   reels: 5,
   rows: 3,
+  themePath: 'themes/desi-movie-set/theme.json',
 
   economy: {
     startingCredits: 2000,
@@ -73,7 +74,15 @@ const CONFIG = {
   spinTiming: {
     baseReelStopDelayMs: 650,
     betweenReelsDelayMs: 260,
-    rollingTickMs: 85
+    reelDurationMs: 1500
+  },
+
+  animation: {
+    stripMinSymbols: 22,
+    stripMaxSymbols: 34,
+    accelPhase: 0.2,
+    cruisePhase: 0.6,
+    decelPhase: 0.2
   }
 };
 
@@ -89,7 +98,8 @@ const state = {
   bonusMultiplier: 1,
   isSpinning: false,
   grid: [],
-  currentWinningLines: []
+  currentWinningLines: [],
+  theme: null
 };
 
 if (state.betIndex === -1) {
@@ -114,15 +124,20 @@ const betDownBtn = document.getElementById('betDownBtn');
 const betUpBtn = document.getElementById('betUpBtn');
 const spinBtn = document.getElementById('spinBtn');
 
-let cellRefs = [];
-let lineRefs = [];
-let reelIntervals = [];
+const reelRefs = [];
+let highlightTimeoutId = null;
 
 // =========================
 // INITIALIZATION
 // =========================
 
-init();
+bootstrap();
+
+async function bootstrap() {
+  await loadTheme();
+  applyThemeUI();
+  init();
+}
 
 function init() {
   buildGrid();
@@ -131,6 +146,21 @@ function init() {
   renderGrid(state.grid);
   updateUI();
   bindEvents();
+}
+
+async function loadTheme() {
+  try {
+    const response = await fetch(CONFIG.themePath, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Theme fetch failed with status ${response.status}`);
+    }
+
+    const parsedTheme = await response.json();
+    state.theme = parsedTheme;
+  } catch (error) {
+    state.theme = null;
+    console.warn('Theme not loaded; falling back to default symbol labels.', error);
+  }
 }
 
 function bindEvents() {
@@ -155,38 +185,35 @@ function bindEvents() {
 
 function buildGrid() {
   reelGridEl.innerHTML = '';
-  cellRefs = Array.from({ length: CONFIG.reels }, () => Array(CONFIG.rows));
+  reelRefs.length = 0;
 
   for (let reel = 0; reel < CONFIG.reels; reel += 1) {
-    const reelEl = document.createElement('div');
-    reelEl.className = 'reel';
+    const reelWindowEl = document.createElement('div');
+    reelWindowEl.className = 'reel-window';
 
-    for (let row = 0; row < CONFIG.rows; row += 1) {
-      const cellEl = document.createElement('div');
-      cellEl.className = 'symbol-cell';
-      cellEl.textContent = '⬛';
-      reelEl.appendChild(cellEl);
-      cellRefs[reel][row] = cellEl;
-    }
+    const reelStripEl = document.createElement('div');
+    reelStripEl.className = 'reel-strip';
 
-    reelGridEl.appendChild(reelEl);
+    reelWindowEl.appendChild(reelStripEl);
+    reelGridEl.appendChild(reelWindowEl);
+
+    reelRefs.push({
+      windowEl: reelWindowEl,
+      stripEl: reelStripEl
+    });
   }
 }
 
 function renderGrid(grid) {
   for (let reel = 0; reel < CONFIG.reels; reel += 1) {
-    for (let row = 0; row < CONFIG.rows; row += 1) {
-      const symbolId = grid[row][reel];
-      const symbol = getSymbolById(symbolId);
-      cellRefs[reel][row].textContent = symbol.label;
-      cellRefs[reel][row].classList.remove('rolling');
-    }
+    const column = getColumnFromGrid(grid, reel);
+    renderReelStrip(reel, column);
+    setReelStripOffset(reel, 0);
   }
 }
 
 function buildPaylineOverlay() {
   paylineOverlayEl.innerHTML = '';
-  lineRefs = [];
 
   const xStep = 100 / (CONFIG.reels - 1);
   const rowCenters = [100 / 6, 50, 100 - 100 / 6];
@@ -202,14 +229,12 @@ function buildPaylineOverlay() {
     polyline.dataset.lineIndex = String(idx);
 
     paylineOverlayEl.appendChild(polyline);
-    lineRefs[idx] = polyline;
   });
 }
 
 function highlightWinningLines(indices) {
-  lineRefs.forEach((line, idx) => {
-    line.classList.toggle('active', indices.includes(idx));
-  });
+  // Intentionally disabled visually (paylines kept hidden by requirement).
+  void indices;
 }
 
 function updateUI() {
@@ -239,6 +264,22 @@ function formatNumber(value) {
   return value.toLocaleString();
 }
 
+function renderReelStrip(reelIndex, symbolIds) {
+  const stripEl = reelRefs[reelIndex].stripEl;
+  stripEl.innerHTML = '';
+
+  for (const symbolId of symbolIds) {
+    const cellEl = document.createElement('div');
+    cellEl.className = 'symbol-cell';
+    renderSymbolInCell(cellEl, symbolId);
+    stripEl.appendChild(cellEl);
+  }
+}
+
+function setReelStripOffset(reelIndex, offsetPx) {
+  reelRefs[reelIndex].stripEl.style.transform = `translateY(${-offsetPx}px)`;
+}
+
 // =========================
 // GAME FLOW
 // =========================
@@ -257,6 +298,7 @@ async function spin() {
   state.isSpinning = true;
   state.lastWin = 0;
   state.currentWinningLines = [];
+  clearWinningHighlights();
   highlightWinningLines([]);
 
   if (usingFreeSpin) {
@@ -273,9 +315,7 @@ async function spin() {
   updateUI();
 
   const finalGrid = generateRandomGrid();
-
   await animateSpinToGrid(finalGrid);
-
   state.grid = finalGrid;
 
   const result = evaluateSpin(finalGrid, bet, state.bonusMultiplier);
@@ -301,6 +341,7 @@ function applySpinResult(result) {
   }
 
   highlightWinningLines(result.winningLines);
+  highlightWinningCells(result.highlightCoords, 1500);
 
   if (totalWin > 0) {
     playWinSound(totalWin);
@@ -331,52 +372,105 @@ function applySpinResult(result) {
 }
 
 async function animateSpinToGrid(finalGrid) {
-  reelIntervals = [];
+  const reelPromises = [];
 
   for (let reel = 0; reel < CONFIG.reels; reel += 1) {
-    startReelRolling(reel);
+    const finalColumn = getColumnFromGrid(finalGrid, reel);
+    const stripSymbols = generateSpinStrip(finalColumn);
+    const startDelay = reel * CONFIG.spinTiming.betweenReelsDelayMs;
+    const duration =
+      CONFIG.spinTiming.reelDurationMs +
+      CONFIG.spinTiming.baseReelStopDelayMs +
+      (reel * CONFIG.spinTiming.betweenReelsDelayMs);
+
+    const promise = sleep(startDelay)
+      .then(() => animateSingleReel(reel, stripSymbols, duration))
+      .then(() => {
+        playReelStopSound(reel);
+      });
+
+    reelPromises.push(promise);
   }
 
-  const stopPromises = [];
-
-  for (let reel = 0; reel < CONFIG.reels; reel += 1) {
-    const delayMs = CONFIG.spinTiming.baseReelStopDelayMs + (reel * CONFIG.spinTiming.betweenReelsDelayMs);
-
-    const p = sleep(delayMs).then(() => {
-      stopReelRolling(reel, finalGrid);
-      playReelStopSound(reel);
-    });
-
-    stopPromises.push(p);
-  }
-
-  await Promise.all(stopPromises);
-  await sleep(120);
+  await Promise.all(reelPromises);
+  renderGrid(finalGrid);
+  await sleep(100);
 }
 
-function startReelRolling(reelIndex) {
-  const intervalId = setInterval(() => {
-    for (let row = 0; row < CONFIG.rows; row += 1) {
-      const randomSymbol = getRandomSymbolId();
-      const symbol = getSymbolById(randomSymbol);
-      const cell = cellRefs[reelIndex][row];
-      cell.textContent = symbol.label;
-      cell.classList.add('rolling');
-    }
-  }, CONFIG.spinTiming.rollingTickMs);
+function animateSingleReel(reelIndex, stripSymbols, durationMs) {
+  renderReelStrip(reelIndex, stripSymbols);
 
-  reelIntervals[reelIndex] = intervalId;
+  const symbolHeight = getSymbolHeightPx();
+  const finalOffset = (stripSymbols.length - CONFIG.rows) * symbolHeight;
+  const startTime = performance.now();
+
+  return new Promise((resolve) => {
+    const tick = (now) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / durationMs, 1);
+      const progress = spinProgress(t);
+      setReelStripOffset(reelIndex, finalOffset * progress);
+
+      if (t < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+
+      setReelStripOffset(reelIndex, finalOffset);
+      resolve();
+    };
+
+    requestAnimationFrame(tick);
+  });
 }
 
-function stopReelRolling(reelIndex, finalGrid) {
-  clearInterval(reelIntervals[reelIndex]);
+function spinProgress(t) {
+  const accelEnd = CONFIG.animation.accelPhase;
+  const cruiseEnd = accelEnd + CONFIG.animation.cruisePhase;
 
-  for (let row = 0; row < CONFIG.rows; row += 1) {
-    const symbol = getSymbolById(finalGrid[row][reelIndex]);
-    const cell = cellRefs[reelIndex][row];
-    cell.textContent = symbol.label;
-    cell.classList.remove('rolling');
+  if (t <= accelEnd) {
+    const u = t / accelEnd;
+    return accelEnd * easeInQuad(u);
   }
+
+  if (t <= cruiseEnd) {
+    const u = (t - accelEnd) / CONFIG.animation.cruisePhase;
+    return accelEnd + (CONFIG.animation.cruisePhase * u);
+  }
+
+  const u = (t - cruiseEnd) / CONFIG.animation.decelPhase;
+  return cruiseEnd + (CONFIG.animation.decelPhase * easeOutQuad(u));
+}
+
+function easeInQuad(x) {
+  return x * x;
+}
+
+function easeOutQuad(x) {
+  return 1 - ((1 - x) * (1 - x));
+}
+
+function generateSpinStrip(finalColumn) {
+  const randomCount = randomIntInclusive(CONFIG.animation.stripMinSymbols, CONFIG.animation.stripMaxSymbols);
+  const strip = [];
+
+  for (let i = 0; i < randomCount; i += 1) {
+    strip.push(getRandomSymbolId());
+  }
+
+  strip.push(...finalColumn);
+  return strip;
+}
+
+function getColumnFromGrid(grid, reelIndex) {
+  return [grid[0][reelIndex], grid[1][reelIndex], grid[2][reelIndex]];
+}
+
+function getSymbolHeightPx() {
+  const cssValue = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
+  const parsed = parseFloat(cssValue);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return 100;
 }
 
 // =========================
@@ -386,22 +480,31 @@ function stopReelRolling(reelIndex, finalGrid) {
 function evaluateSpin(grid, bet, bonusMultiplier) {
   let totalWin = 0;
   const winningLines = [];
+  const winningLineCoordinates = [];
+  const highlightCoords = [];
 
   CONFIG.paylines.forEach((line, lineIndex) => {
     const symbolsOnLine = line.map((rowIndex, reelIndex) => grid[rowIndex][reelIndex]);
-    const lineResult = evaluatePayline(symbolsOnLine, bet, bonusMultiplier);
+    const lineResult = evaluatePayline(symbolsOnLine, line, bet, bonusMultiplier);
 
     if (lineResult.win > 0) {
       totalWin += lineResult.win;
       winningLines.push(lineIndex);
+      winningLineCoordinates.push({
+        lineIndex,
+        coords: lineResult.winningCoords
+      });
+      highlightCoords.push(...lineResult.winningCoords);
     }
   });
 
   const scatterCount = countSymbolInGrid(grid, 'SCATTER');
+  const scatterCoords = scatterCount >= 3 ? getSymbolCoordinatesInGrid(grid, 'SCATTER') : [];
   const scatterMultiplier = getPayoutMultiplier('SCATTER', scatterCount);
 
   if (scatterMultiplier > 0) {
     totalWin += Math.floor(bet * scatterMultiplier * bonusMultiplier);
+    highlightCoords.push(...scatterCoords);
   }
 
   const freeSpinsAwarded = CONFIG.freeSpins.triggerByScatterCount[scatterCount] || 0;
@@ -417,13 +520,16 @@ function evaluateSpin(grid, bet, bonusMultiplier) {
   return {
     totalWin,
     winningLines,
+    winningLineCoordinates,
     scatterCount,
+    scatterCoords,
     freeSpinsAwarded,
-    randomBonusAwarded
+    randomBonusAwarded,
+    highlightCoords: dedupeCoords(highlightCoords)
   };
 }
 
-function evaluatePayline(symbols, bet, bonusMultiplier) {
+function evaluatePayline(symbols, paylineRows, bet, bonusMultiplier) {
   const WILD = 'WILD';
   const SCATTER = 'SCATTER';
 
@@ -461,7 +567,7 @@ function evaluatePayline(symbols, bet, bonusMultiplier) {
   }
 
   if (consecutive < 3) {
-    return { win: 0, symbol: targetSymbol || WILD, count: consecutive };
+    return { win: 0, symbol: targetSymbol || WILD, count: consecutive, winningCoords: [] };
   }
 
   if (targetSymbol === null) {
@@ -470,11 +576,16 @@ function evaluatePayline(symbols, bet, bonusMultiplier) {
 
   const multiplier = getPayoutMultiplier(targetSymbol, consecutive);
   if (multiplier <= 0) {
-    return { win: 0, symbol: targetSymbol, count: consecutive };
+    return { win: 0, symbol: targetSymbol, count: consecutive, winningCoords: [] };
   }
 
   const win = Math.floor(bet * multiplier * bonusMultiplier);
-  return { win, symbol: targetSymbol, count: consecutive };
+  const winningCoords = Array.from({ length: consecutive }, (_, reelIndex) => ({
+    reel: reelIndex,
+    row: paylineRows[reelIndex]
+  }));
+
+  return { win, symbol: targetSymbol, count: consecutive, winningCoords };
 }
 
 function getPayoutMultiplier(symbolId, count) {
@@ -491,6 +602,18 @@ function countSymbolInGrid(grid, symbolId) {
     }
   }
   return count;
+}
+
+function getSymbolCoordinatesInGrid(grid, symbolId) {
+  const coords = [];
+  for (let row = 0; row < CONFIG.rows; row += 1) {
+    for (let reel = 0; reel < CONFIG.reels; reel += 1) {
+      if (grid[row][reel] === symbolId) {
+        coords.push({ reel, row });
+      }
+    }
+  }
+  return coords;
 }
 
 // =========================
@@ -531,6 +654,108 @@ function getSymbolById(symbolId) {
 
 function getCurrentBet() {
   return CONFIG.economy.betOptions[state.betIndex];
+}
+
+function getThemeSymbolPath(symbolId) {
+  const themedSymbols = state.theme && state.theme.symbols;
+  if (!themedSymbols || typeof themedSymbols !== 'object') {
+    return null;
+  }
+
+  const path = themedSymbols[symbolId];
+  return typeof path === 'string' && path.length > 0 ? path : null;
+}
+
+function getThemeBackgroundPath() {
+  const themedUi = state.theme && state.theme.ui;
+  if (!themedUi || typeof themedUi !== 'object') {
+    return null;
+  }
+
+  const path = themedUi.background;
+  return typeof path === 'string' && path.length > 0 ? path : null;
+}
+
+function applyThemeUI() {
+  const backgroundPath = getThemeBackgroundPath();
+  if (!backgroundPath) {
+    return;
+  }
+
+  document.body.style.backgroundImage = `url("${backgroundPath}")`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundAttachment = 'fixed';
+}
+
+function renderSymbolInCell(cell, symbolId) {
+  const themeSymbolPath = getThemeSymbolPath(symbolId);
+  const symbol = getSymbolById(symbolId);
+  const contentEl = document.createElement('div');
+  contentEl.className = 'symbol-content';
+  cell.innerHTML = '';
+
+  if (themeSymbolPath) {
+    const img = document.createElement('img');
+    img.src = themeSymbolPath;
+    img.alt = `${symbol.id} symbol`;
+    img.onerror = () => {
+      img.remove();
+      contentEl.textContent = symbol.label;
+    };
+    contentEl.appendChild(img);
+    cell.appendChild(contentEl);
+    return;
+  }
+
+  contentEl.textContent = symbol.label;
+  cell.appendChild(contentEl);
+}
+
+function getVisibleCellElement(reelIndex, rowIndex) {
+  const reelRef = reelRefs[reelIndex];
+  if (!reelRef || !reelRef.stripEl) return null;
+  return reelRef.stripEl.children[rowIndex] || null;
+}
+
+function clearWinningHighlights() {
+  if (highlightTimeoutId) {
+    clearTimeout(highlightTimeoutId);
+    highlightTimeoutId = null;
+  }
+
+  const winningCells = reelGridEl.querySelectorAll('.symbol-cell.win');
+  winningCells.forEach((cell) => cell.classList.remove('win'));
+}
+
+function highlightWinningCells(coords, durationMs) {
+  clearWinningHighlights();
+
+  coords.forEach(({ reel, row }) => {
+    const cell = getVisibleCellElement(reel, row);
+    if (cell) {
+      cell.classList.add('win');
+    }
+  });
+
+  highlightTimeoutId = setTimeout(() => {
+    const winningCells = reelGridEl.querySelectorAll('.symbol-cell.win');
+    winningCells.forEach((cell) => cell.classList.remove('win'));
+    highlightTimeoutId = null;
+  }, durationMs);
+}
+
+function dedupeCoords(coords) {
+  const seen = new Set();
+  const deduped = [];
+  for (const coord of coords) {
+    const key = `${coord.reel}-${coord.row}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(coord);
+  }
+  return deduped;
 }
 
 // =========================

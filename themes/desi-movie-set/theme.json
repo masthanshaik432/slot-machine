@@ -1,0 +1,38 @@
+{
+  "name": "Desi Movie Set",
+  "symbols": {
+    "CHERRY": "themes/desi-movie-set/symbols/cherry.png",
+    "LEMON": "themes/desi-movie-set/symbols/lemon.png",
+    "BELL": "themes/desi-movie-set/symbols/bell.png",
+    "STAR": "themes/desi-movie-set/symbols/star.png",
+    "GEM": "themes/desi-movie-set/symbols/gem.png",
+    "WILD": "themes/desi-movie-set/symbols/wild.png",
+    "SCATTER": "themes/desi-movie-set/symbols/scatter.png",
+    "JACKPOT": "themes/desi-movie-set/symbols/jackpot.png"
+  },
+  "ui": {
+    "logo": "themes/desi-movie-set/ui/logo.png",
+    "background": "themes/desi-movie-set/images/ui/background.jpg",
+    "panel": "themes/desi-movie-set/ui/panel.png",
+    "spinButton": "themes/desi-movie-set/ui/spin-button.png"
+  },
+  "audio": {
+    "bgm": "themes/desi-movie-set/audio/bgm.mp3",
+    "spin": "themes/desi-movie-set/audio/spin.mp3",
+    "reelStop": "themes/desi-movie-set/audio/reel-stop.mp3",
+    "win": "themes/desi-movie-set/audio/win.mp3",
+    "jackpot": "themes/desi-movie-set/audio/jackpot.mp3"
+  },
+  "volume": {
+    "master": 0.9,
+    "music": 0.6,
+    "sfx": 0.85
+  },
+  "style": {
+    "primaryColor": "#f8c537",
+    "secondaryColor": "#ff5e8a",
+    "accentColor": "#52f0b9",
+    "fontFamily": "\"Segoe UI\", sans-serif",
+    "reelFrameClass": "desi-reel-frame"
+  }
+}
